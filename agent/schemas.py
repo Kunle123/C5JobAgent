@@ -1,0 +1,1 @@
+# TODO: Define Pydantic models for job search requests and responses 
