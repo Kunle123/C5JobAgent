@@ -1,5 +1,6 @@
 import os
 import openai
+import json
 from typing import List, Dict
 
 openai_api_key = os.getenv("OPENAI_API_KEY")
@@ -16,7 +17,7 @@ Given the following user profile:
 And the following job description:
 {job['description']}
 
-Rate how well this job matches the user's profile on a scale from 0 to 1, and explain why. Respond in JSON as: {{'score': <float>, 'explanation': <string>}}
+Rate how well this job matches the user's profile on a scale from 0 to 1, and explain why. Respond ONLY in valid JSON as: {{"score": <float>, "explanation": <string>}}
 """
         response = await client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -26,9 +27,9 @@ Rate how well this job matches the user's profile on a scale from 0 to 1, and ex
         )
         content = response.choices[0].message.content
         try:
-            result = eval(content) if content.strip().startswith('{') else {}
-        except Exception:
-            result = {"score": 0, "explanation": "Could not parse OpenAI response."}
+            result = json.loads(content)
+        except json.JSONDecodeError:
+            result = {"score": 0, "explanation": "Could not parse OpenAI response as JSON."}
         matches.append({
             "job": job,
             "score": result.get("score", 0),
