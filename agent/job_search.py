@@ -1,33 +1,39 @@
 import httpx
-import xml.etree.ElementTree as ET
 from typing import List, Dict
 from fastapi import HTTPException
+import os
 
-JOB_SERVE_RSS_URL = "https://www.jobserve.com/gb/en/Job-Search/rss.aspx"
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+ADZUNA_APP_ID = os.getenv("ADZUNA_APP_ID")
+ADZUNA_APP_KEY = os.getenv("ADZUNA_APP_KEY")
+ADZUNA_URL = "https://api.adzuna.com/v1/api/jobs/gb/search/1"
 
 async def search_jobs(search_params=None) -> List[Dict]:
     if search_params is None:
         search_params = {}
     keywords = search_params.get("keywords", "")
     location = search_params.get("location", "")
-    params = {"keywords": keywords, "location": location}
-    headers = {"User-Agent": USER_AGENT}
+    params = {
+        "app_id": ADZUNA_APP_ID,
+        "app_key": ADZUNA_APP_KEY,
+        "results_per_page": 10,
+        "what": keywords,
+        "where": location,
+        "content-type": "application/json"
+    }
     async with httpx.AsyncClient() as client:
-        response = await client.get(JOB_SERVE_RSS_URL, params=params, headers=headers)
-        response.raise_for_status()
-        try:
-            root = ET.fromstring(response.text)
-        except ET.ParseError as e:
-            print("JobServe RSS response was not valid XML:", response.text)
-            raise HTTPException(status_code=502, detail="JobServe RSS feed is not valid XML or returned an error page.")
+        response = await client.get(ADZUNA_URL, params=params)
+        if response.status_code != 200:
+            print("Adzuna API error:", response.text)
+            raise HTTPException(status_code=502, detail="Adzuna API error")
+        data = response.json()
         jobs = []
-        for item in root.findall(".//item"):
-            job = {
-                "title": item.findtext("title"),
-                "link": item.findtext("link"),
-                "description": item.findtext("description"),
-                "pubDate": item.findtext("pubDate"),
-            }
-            jobs.append(job)
+        for job in data.get("results", []):
+            jobs.append({
+                "title": job.get("title"),
+                "company": job.get("company", {}).get("display_name"),
+                "location": job.get("location", {}).get("display_name"),
+                "description": job.get("description"),
+                "url": job.get("redirect_url"),
+                "created": job.get("created"),
+            })
         return jobs 
