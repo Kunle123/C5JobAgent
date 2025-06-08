@@ -16,7 +16,7 @@ async def search_jobs_for_user(request: Request):
     except Exception as e:
         raise HTTPException(status_code=401, detail=f"Invalid token: {e}")
     try:
-        ark_data = await get_user_ark_data(user_id, token)
+        ark_data = await get_user_ark_data(token)
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"Could not fetch Ark profile: {e}")
     body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
